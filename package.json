@@ -1,0 +1,14 @@
+{
+  "scripts": {
+    "test": "ava"
+  },
+  "devDependencies": {
+    "ava": "^0.15.2"
+  },
+  "dependencies": {
+    "assert": "^1.4.1",
+    "mongodb": "^2.2.4",
+    "mongoose": "^4.5.7",
+    "string": "^3.3.1"
+  }
+}
