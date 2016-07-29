@@ -14,7 +14,7 @@ const API_KEY = 'AIzaSyAjrnPLRyykFySLHfsrfz9SS7l8p--Rnjg';
 const SEARCH_KEY = 'Big Data';
 
 const opts = {
-  maxResults: 30,
+  maxResults: 3,
   key: API_KEY
 };
 
@@ -30,28 +30,9 @@ const snippetSchema = new Schema({
   content: {type: String, index: true, unique: true}
 }).index({content: 'text'});
 
-mongoose.connect('mongodb://localhost:27017/');
+//mongoose.connect('mongodb://localhost:27017/');
 
 const snippet = mongoose.model('snippet', snippetSchema);
-
-
-const looper = function (result, i, callback) {
-  const entry = result[i];
-
-  youtubedl.getSubs(url, subOpts, (err, files) => {
-    if (i < result.length - 1) {
-
-      looper(result, i + 1, callback);
-    }
-    else {
-      return callback(null);
-    }
-  });
-
-  looper(result, 0, (err) => {
-    console.log('ALL DONE!');
-  });
-}
 
 console.log("\nXXXXXXXXXXX\n")
 // search for youtube videos
@@ -66,6 +47,7 @@ search(SEARCH_KEY, opts, function(err, result) {
   }
 
   result.forEach(function(entry) {
+    if (!entry) { return console.log("Empty Entry.".red); }
     if (entry["id"].length != 11) {
       return console.log("[ERROR] ".red + "Not a Tinyurl!");
     }
@@ -73,7 +55,7 @@ search(SEARCH_KEY, opts, function(err, result) {
     const tinyurl = entry["id"];
     const title = entry["title"];
     const description = entry["description"];
-    const url = "https://youtube.com/watch?v=" + tinyurl;
+    const url = entry["link"];
 
     console.log("[URL] ".yellow + url);
     console.log("[TINYURL] ".green + tinyurl);
@@ -88,7 +70,7 @@ search(SEARCH_KEY, opts, function(err, result) {
         return console.log(err);
       }
 
-      if (vttfile == "" || null) {
+      if (!vttfile) {
         return console.log("[EMPTY] ".red + "No sub found.");
       }
 
@@ -112,48 +94,66 @@ search(SEARCH_KEY, opts, function(err, result) {
         const finalContent = taglessContent.replace(removePosition, "");
         const splitContent = finalContent.split("\n");
 
-        const subs = [];
 
-        let timecodeStart = false;
         let currentTimecode = "";
         let previousString = "";
-        let previousTimecode = "";
 
         splitContent.forEach(function(entry) {
           if (!entry || entry == " ") {
             return;
           }
 
-          if (!timecodeStart === true) {
-            if (hasTimecode.test(entry)) {
+          //NOTE: VTT SKIP HEADER, START AT FIRST TIMECODE (00:00:00.000)
+
+          if (hasTimecode.test(entry)) {
               currentTimecode = entry;
-              timecodeStart = true;
               return;
-            } else {
-              return;
-            }
           }
 
-          if (!hasTimecode.test(entry)) {
-            if (previousString !== entry) {
-              console.log("[TINYURL]\t", tinyurl);
-              const timestamp = currentTimecode.replace(getStarttime, "");
-              console.log("[TIMESTAMP]\t".yellow, timestamp);
-              const cleanEntry = S(entry).collapseWhitespace().s;
-              console.log("[CONTENT]\t".blue, cleanEntry, "\n");
-              const snippet1 = new snippet({tinyurl: tinyurl, timestamp: timestamp, content: cleanEntry});
-              snippet1.save(function (err, userObj) {
-                if (err) {
-                  console.log(err);
-                }
-              });
-              previousString = entry;
-            }
-          } else {
-            currentTimecode = entry;
+          if (previousString === entry) {
+            return;
           }
+
+          console.log("[TINYURL]\t", tinyurl);
+          const timestamp = currentTimecode.replace(getStarttime, "");
+          console.log("[TIMESTAMP]\t".yellow, timestamp);
+          const cleanEntry = S(entry).collapseWhitespace().s;
+          console.log("[CONTENT]\t".blue, cleanEntry, "\n");
+          /*
+          const snippet1 = new snippet({tinyurl: tinyurl, timestamp: timestamp, content: cleanEntry});
+          snippet1.save(function (err, userObj) {
+            if (err) {
+              console.log(err);
+            }
+          });
+          */
+          previousString = entry;
+          return;
         });
       });
     });
   });
 });
+
+
+// NOTE:
+
+/*
+const looper = function (result, i, callback) {
+  const entry = result[i];
+
+  youtubedl.getSubs(url, subOpts, (err, files) => {
+    if (i < result.length - 1) {
+
+      looper(result, i + 1, callback);
+    }
+    else {
+      return callback(null);
+    }
+  });
+
+  looper(result, 0, (err) => {
+    console.log('ALL DONE!');
+  });
+}
+*/
