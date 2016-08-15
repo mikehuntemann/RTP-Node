@@ -7,8 +7,10 @@
   },
   "dependencies": {
     "assert": "^1.4.1",
+    "cheerio": "^0.20.0",
     "mongodb": "^2.2.4",
     "mongoose": "^4.5.7",
+    "request": "^2.74.0",
     "string": "^3.3.1"
   }
 }
