@@ -33,51 +33,17 @@ const snippetSchema = new Schema({
 const snippet = mongoose.model('snippet', snippetSchema);
 const pageCounter = 1;
 
+
 // SEARCH QUERY ON YOUTUBE
 const youtubeInitialSearch = function() {
   for (let i = 1; i < pageCounter+1; i++) {
     const crawlURL = YOUTUBE_SEARCH_BASE + i.toString();
-    console.log(i, crawlURL);
-    request(crawlURL, function(err, response, body) {
-      if (err || response.statusCode !== 200) {
-        return console.log(err);
-      }
-      const hyperlinks = $('a', 'li', body);
-      $(hyperlinks).each(function(i, link) {
-        const possibleTiny = $(link).attr('href');
-        if (!possibleTiny.startsWith('/watch?v=')) {
-          return console.log('[ERROR]'.red, possibleTiny, 'is not a tinyurl!');
-        }
-        const tinyurl = possibleTiny.split('/watch?v=')[1];
-        const googleApiRequestURL = GOOGLE_API_BASE + tinyurl + '&key=' + API_KEY +
-                                    '&part=snippet,contentDetails,statistics';
-        console.log('[SUCCESS]'.green, googleApiRequestURL);
-// USE GOOGLE API FOR VIDEO DATA
-        request(googleApiRequestURL, function(err, response, body) {
-          if (err || response.statusCode !== 200) {
-            return console.log(err);
-          }
-          const googleResponse = JSON.parse(body);
-          console.log(googleResponse.items[0].snippet.title);
-          console.log(googleResponse.items[0].snippet.description);
-          console.log(googleResponse.items[0].snippet.tags);
-        });
-      });
-    });
+    getAllTinys(crawlURL);
   }
 }
 
-const findAllLinks = function(url) {
-
-}
-
 const searchRelatedVideos = function(tinyurl) {
-  request(videoURL(tinyurl), function(err, response, body){
-    if (err || statusCode !== 200) {
-      return console.log(err);
-    }
-
-  });
+  getAllTinys(videoURL(tinyurl));
 }
 
 const videoURL = function(tinyurl) {
@@ -85,9 +51,45 @@ const videoURL = function(tinyurl) {
 }
 
 
-// GET SUBFILE AND HANDLE IT
-const getSubtitles = function(tinyurl) {
+const getAllTinys = function(url) {
+  request(url, function(err, response, body) {
+    if (err || response.statusCode !== 200) {
+      return console.log(err);
+    }
+    const hyperlinks = $('a', 'li', body);
+    $(hyperlinks).each(function(i, link) {
+      const possibleTiny = $(link).attr('href');
+      if (!possibleTiny.startsWith('/watch?v=')) {
+        return console.log('[ERROR]'.red, possibleTiny, 'is not a tinyurl!');
+      }
+      console.log('[SUCCES]'.green, possibleTiny);
+      const tinyurl = possibleTiny.split('/watch?v=')[1];
+      getVideoData(tinyurl);
+      getSubtitles(tinyurl);
+    });
+  });
+}
 
+
+const getVideoData = function(tinyurl) {
+  const googleApiRequestURL = GOOGLE_API_BASE + tinyurl + '&key=' + API_KEY +
+                              '&part=snippet,contentDetails,statistics';
+  request(googleApiRequestURL, function(err, response, body) {
+    if (err || response.statusCode !== 200) {
+      return console.log(err);
+    }
+    const googleResponse = JSON.parse(body);
+    console.log(googleResponse.items[0].snippet.title);
+    //console.log(googleResponse.items[0].snippet.description);
+    //console.log(googleResponse.items[0].snippet.tags);
+    console.log('=========')
+  });
+  return;
+}
+
+
+// DOWNLOAD SUBFILE AND HANDLE IT
+const getSubtitles = function(tinyurl) {
   youtubedl.getSubs(videoURL(tinyurl), subOpts, function(err, vttfile) {
     if (err) {
       return console.log(err);
@@ -156,3 +158,6 @@ const getSubtitles = function(tinyurl) {
     });
   });
 }
+
+
+youtubeInitialSearch();
