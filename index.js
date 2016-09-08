@@ -5,6 +5,7 @@ const youtubedl = require('youtube-dl');
 const colors = require('colors');
 const S = require('string');
 const $ = require('cheerio');
+const makeTimestamp = require('timestamp')
 const request = require('request');
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
@@ -22,24 +23,55 @@ const subOpts = {
   cwd: __dirname
 };
 
+const tinySchema = new Schema({
+  tinyurl: {type: String, unique: true},
+  title: String,
+  description: String,
+  timestamp: String,
+  picked: Boolean,
+});
+
 const snippetSchema = new Schema({
   tinyurl:  String,
   timestamp: String,
-  content: {type: String, index: true, unique: true}
+  content: {type: String, index: true}
 }).index({content: 'text'});
 
-//mongoose.connect('mongodb://localhost:27017/');
+mongoose.connect('mongodb://127.0.0.1:27017/');
 
 const snippet = mongoose.model('snippet', snippetSchema);
+const tiny = mongoose.model('tiny', tinySchema);
 const pageCounter = 1;
+
 
 
 // SEARCH QUERY ON YOUTUBE
 const youtubeInitialSearch = function() {
+  /*
   for (let i = 1; i < pageCounter+1; i++) {
     const crawlURL = YOUTUBE_SEARCH_BASE + i.toString();
     getAllTinys(crawlURL);
   }
+  */
+  notPickedTiny();
+}
+
+
+const notPickedTiny = function() {
+  const newTiny = findOneAvialableTiny();
+}
+
+const findOneAvialableTiny = function () {
+  tiny.findOneAndUpdate({
+    'picked': false}, {$set:{'picked':true}
+  }, function(err, tiny) {
+    if (err) {
+      return console.log(err);
+    }
+    console.log(tiny);
+    searchRelatedVideos(tiny);
+    });
+
 }
 
 const searchRelatedVideos = function(tinyurl) {
@@ -65,8 +97,18 @@ const getAllTinys = function(url) {
       console.log('[SUCCES]'.green, possibleTiny);
       const tinyurl = possibleTiny.split('/watch?v=')[1];
       getVideoData(tinyurl);
-      getSubtitles(tinyurl);
     });
+  });
+}
+
+const saveTinyToDatabase = function(tinyurl, title, description) {
+  const tiny1 = new tiny({tinyurl: tinyurl, title: title, description: description, timestamp: makeTimestamp(), picked: false});
+  tiny1.save(function (err, userObj) {
+    if (err) {
+      return console.log(err);
+    }
+    console.log(tinyurl, 'added to mongodb.');
+    getSubtitles(tinyurl);
   });
 }
 
@@ -79,11 +121,17 @@ const getVideoData = function(tinyurl) {
       return console.log(err);
     }
     const googleResponse = JSON.parse(body);
-    console.log(googleResponse.items[0].snippet.title);
-    //console.log(googleResponse.items[0].snippet.description);
-    //console.log(googleResponse.items[0].snippet.tags);
-    console.log('=========')
-  });
+    const title = googleResponse.items[0].snippet.title;
+    console.log(title);
+    const description = googleResponse.items[0].snippet.description;
+    //const tags = googleResponse.items[0].snippet.tags;
+    if (!title.indexOf(SEARCH_KEY)) {
+      if (!description.indexOf(SEARCH_KEY)) {
+        return console.log('no SEARCH_KEY found in VIDEODATA.');
+      }
+    }
+     saveTinyToDatabase(tinyurl, title, description);
+    });
   return;
 }
 
@@ -139,19 +187,19 @@ const getSubtitles = function(tinyurl) {
           return;
         }
 
-        console.log("[TINYURL]\t", tinyurl);
+        //console.log("[TINYURL]\t", tinyurl);
         const timestamp = currentTimecode.replace(getStarttime, "");
-        console.log("[TIMESTAMP]\t".yellow, timestamp);
+        //console.log("[TIMESTAMP]\t".yellow, timestamp);
         const cleanEntry = S(entry).collapseWhitespace().s;
-        console.log("[CONTENT]\t".blue, cleanEntry, "\n");
-        /*
+        //console.log("[CONTENT]\t".blue, cleanEntry, "\n");
+
         const snippet1 = new snippet({tinyurl: tinyurl, timestamp: timestamp, content: cleanEntry});
         snippet1.save(function (err, userObj) {
           if (err) {
             console.log(err);
           }
         });
-        */
+
         previousString = entry;
         return;
       });
