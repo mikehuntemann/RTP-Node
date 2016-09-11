@@ -1,6 +1,7 @@
 'use strict';
 
 import eachSeries from 'async/eachSeries';
+import forever from 'async/forever';
 
 const fs = require('fs');
 const youtubedl = require('youtube-dl');
@@ -69,8 +70,12 @@ const youtubeInitialSearch = function() {
 }
 
 
-const notPickedTiny = function(callback) {
-  findOneAvialableTiny(callback);
+const notPickedTiny = function() {
+  forever((next) => {
+    findOneAvialableTiny(next);
+  }, (err) => {
+    console.log(err);
+  })
 }
 
 const findOneAvialableTiny = function (callback) {
