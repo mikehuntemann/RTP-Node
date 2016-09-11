@@ -1,5 +1,7 @@
 'use strict';
 
+import eachSeries from 'async/eachSeries';
+
 const fs = require('fs');
 const youtubedl = require('youtube-dl');
 const colors = require('colors');
@@ -47,78 +49,93 @@ const pageCounter = 1;
 
 // SEARCH QUERY ON YOUTUBE
 const youtubeInitialSearch = function() {
-  /*
-  for (let i = 1; i < pageCounter+1; i++) {
+  const crawl = (i) => {
     const crawlURL = YOUTUBE_SEARCH_BASE + i.toString();
-    getAllTinys(crawlURL);
+    getAllTinys(crawlURL, (err) => {
+      if (err) {
+        console.log(err);
+      }
+
+      if (i < pageCounter + 1) {
+        crawl(i + 1);
+      }
+      else {
+        notPickedTiny();
+      }
+    });
   }
-  */
-  notPickedTiny();
+
+  crawl(1);
 }
 
 
-const notPickedTiny = function() {
-  const newTiny = findOneAvialableTiny();
+const notPickedTiny = function(callback) {
+  findOneAvialableTiny(callback);
 }
 
-const findOneAvialableTiny = function () {
+const findOneAvialableTiny = function (callback) {
   tiny.findOneAndUpdate({
     'picked': false}, {$set:{'picked':true}
   }, function(err, tiny) {
     if (err) {
-      return console.log(err);
+      return callback(err);
     }
     console.log(tiny);
-    searchRelatedVideos(tiny);
+    searchRelatedVideos(tiny, callback);
     });
 
 }
 
-const searchRelatedVideos = function(tinyurl) {
-  getAllTinys(videoURL(tinyurl));
+const searchRelatedVideos = function(tinyurl, callback) {
+  getAllTinys(videoURL(tinyurl), callback);
 }
 
 const videoURL = function(tinyurl) {
   return YOUTUBE_BASE + '/watch?v=' + tinyurl;
 }
 
-
-const getAllTinys = function(url) {
+const getAllTinys = function(url, callback) {
   request(url, function(err, response, body) {
     if (err || response.statusCode !== 200) {
-      return console.log(err);
+      return callback(err);
     }
+
     const hyperlinks = $('a', 'li', body);
-    $(hyperlinks).each(function(i, link) {
+
+    eachSeries($(hyperlinks), function(link, cb) {
       const possibleTiny = $(link).attr('href');
       if (!possibleTiny.startsWith('/watch?v=')) {
-        return console.log('[ERROR]'.red, possibleTiny, 'is not a tinyurl!');
+        console.log('[ERROR]'.red, possibleTiny, 'is not a tinyurl!');
+        return cb(null);
       }
+
       console.log('[SUCCES]'.green, possibleTiny);
       const tinyurl = possibleTiny.split('/watch?v=')[1];
-      getVideoData(tinyurl);
-    });
+      getVideoData(tinyurl, cb);
+    }, callback);
   });
 }
 
-const saveTinyToDatabase = function(tinyurl, title, description) {
+const saveTinyToDatabase = function(tinyurl, title, description, callback) {
   const tiny1 = new tiny({tinyurl: tinyurl, title: title, description: description, timestamp: makeTimestamp(), picked: false});
   tiny1.save(function (err, userObj) {
     if (err) {
-      return console.log(err);
+      return callback(err);
     }
     console.log(tinyurl, 'added to mongodb.');
-    getSubtitles(tinyurl);
+
+    return callback(null)
+    //getSubtitles(tinyurl);
   });
 }
 
 
-const getVideoData = function(tinyurl) {
+const getVideoData = function(tinyurl, callback) {
   const googleApiRequestURL = GOOGLE_API_BASE + tinyurl + '&key=' + API_KEY +
                               '&part=snippet,contentDetails,statistics';
   request(googleApiRequestURL, function(err, response, body) {
     if (err || response.statusCode !== 200) {
-      return console.log(err);
+      return callback(err);
     }
     const googleResponse = JSON.parse(body);
     const title = googleResponse.items[0].snippet.title;
@@ -127,34 +144,35 @@ const getVideoData = function(tinyurl) {
     //const tags = googleResponse.items[0].snippet.tags;
     if (!title.indexOf(SEARCH_KEY)) {
       if (!description.indexOf(SEARCH_KEY)) {
-        return console.log('no SEARCH_KEY found in VIDEODATA.');
+        return callback(new Error('no SEARCH_KEY found in VIDEODATA.'));
       }
     }
-     saveTinyToDatabase(tinyurl, title, description);
-    });
-  return;
+    saveTinyToDatabase(tinyurl, title, description, callback);
+  });
 }
 
 
 // DOWNLOAD SUBFILE AND HANDLE IT
-const getSubtitles = function(tinyurl) {
+const getSubtitles = function(tinyurl, callback) {
   youtubedl.getSubs(videoURL(tinyurl), subOpts, function(err, vttfile) {
     if (err) {
-      return console.log(err);
+      return callback(err);
     }
 
     if (!vttfile) {
-      return console.log("[EMPTY] ".red + "No sub found.");
+      return callback(new Error("[EMPTY] ".red + "No sub found."));
     }
 
     console.log('[SUB] '.green + vttfile);
-    fs.readFile(__dirname + "/" + vttfile, {encoding: 'utf-8'}, function (err, content) {
+    fs.readFile(__dirname + "/" + vttfile, { encoding: 'utf-8' }, function (err, content) {
       if (err) {
-        return console.log(err);
+        return callback(err);
       }
+
       if (!content) {
-        return console.log("[EMPTY] ".red + "No content found.");
+        return callback(new Error("[EMPTY] ".red + "No content found.");
       }
+
       console.log("[SUCCESS] ".green + "content found.");
       //console.log('[CONTENT] '.green + content);
       //console.log(content.length);
@@ -171,20 +189,20 @@ const getSubtitles = function(tinyurl) {
       let currentTimecode = "";
       let previousString = "";
 
-      splitContent.forEach(function(entry) {
+      eachSeries(splitContent, function(entry, cb) {
         if (!entry || entry == " ") {
-          return;
+          return cb(null);
         }
 
         //NOTE: VTT SKIP HEADER, START AT FIRST TIMECODE (00:00:00.000)
 
         if (hasTimecode.test(entry)) {
             currentTimecode = entry;
-            return;
+            return cb(null);
         }
 
         if (previousString === entry) {
-          return;
+          return cb(null);
         }
 
         //console.log("[TINYURL]\t", tinyurl);
@@ -196,13 +214,14 @@ const getSubtitles = function(tinyurl) {
         const snippet1 = new snippet({tinyurl: tinyurl, timestamp: timestamp, content: cleanEntry});
         snippet1.save(function (err, userObj) {
           if (err) {
-            console.log(err);
+            cb(err);
           }
+
+          cb(null);
         });
 
         previousString = entry;
-        return;
-      });
+      }, callback);
     });
   });
 }
