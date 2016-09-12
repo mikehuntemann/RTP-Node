@@ -24,7 +24,7 @@ const getSearchBaseForIndex = (index) => {
   return YOUTUBE_BASE+ 'results?q='+ SEARCH_KEYS[index] + '&p=';
 }
 const GOOGLE_API_BASE = 'https://www.googleapis.com/youtube/v3/videos?id='
-const AMOUNT_OF_TINYS_TO_PROCESS_IN_PARALLEL = 10
+const AMOUNT_OF_TINYS_TO_PROCESS_IN_PARALLEL = require('os').cpus.length;
 
 const pageCounter = 1;
 
