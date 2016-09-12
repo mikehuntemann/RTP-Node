@@ -24,9 +24,9 @@ const getSearchBaseForIndex = (index) => {
   return YOUTUBE_BASE+ 'results?q='+ SEARCH_KEYS[index] + '&p=';
 }
 const GOOGLE_API_BASE = 'https://www.googleapis.com/youtube/v3/videos?id='
+const AMOUNT_OF_TINYS_TO_PROCESS_IN_PARALLEL = 10
 
 const pageCounter = 1;
-
 
 const subOpts = {
   auto: true,
@@ -120,7 +120,7 @@ const getAllTinys = function(url, callback) {
 
     const hyperlinks = $('a', 'li', body);
 
-    eachSeries($(hyperlinks), function(link, cb) {
+    eachLimit($(hyperlinks), AMOUNT_OF_TINYS_TO_PROCESS_IN_PARALLEL, function(link, cb) {
       const possibleTiny = $(link).attr('href');
       if (!possibleTiny.startsWith('/watch?v=')) {
         console.log('[ERROR]'.red, possibleTiny, 'is not a tinyurl!');
