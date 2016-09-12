@@ -155,7 +155,7 @@ const saveTinyToDatabase = function(tinyurl, title, description, callback) {
   tiny1.save(function (err, userObj) {
     if (err) {
       // ignore duplicate key errors
-      if (~err.message.indexOf('duplicate key error')) {
+      if (err.message.indexOf('duplicate key error')) {
         return callback(null);
       }
 
@@ -180,7 +180,8 @@ const getVideoData = function(tinyurl, callback) {
     console.log(title);
     const description = googleResponse.items[0].snippet.description;
     //const tags = googleResponse.items[0].snippet.tags;
-    if (!~title.indexOf(SEARCH_KEY) || !~description.indexOf(SEARCH_KEY)) {
+    if (!title.indexOf(SEARCH_KEY)) {
+      if (!description.indexOf(SEARCH_KEY)) {
         return callback(new Error('no SEARCH_KEY found in VIDEODATA.'));
       }
     }
@@ -248,6 +249,7 @@ const getSubtitles = function(tinyurl, callback) {
 
         console.log("[TINYURL]\t", tinyurl);
         const timestamp = currentTimecode.replace(getStarttime, "");
+        timestamp = S(timestamp).stripRight().s;
         console.log("[TIMESTAMP]\t".yellow, timestamp);
         const cleanEntry = S(entry).collapseWhitespace().s;
         console.log("[CONTENT]\t".blue, cleanEntry, "\n");
