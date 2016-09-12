@@ -1,7 +1,8 @@
 'use strict';
 
-import eachSeries from 'async/eachSeries';
-import forever from 'async/forever';
+const eachSeries = require('async/eachSeries');
+const forever = require('async/forever');
+const parallel = require('async/parallel');
 
 const fs = require('fs');
 const youtubedl = require('youtube-dl');
@@ -16,9 +17,16 @@ const Schema = mongoose.Schema;
 
 const API_KEY = 'AIzaSyAjrnPLRyykFySLHfsrfz9SS7l8p--Rnjg';
 const SEARCH_KEY = 'Big Data';
+const SEARCH_KEYS = ['Algorithm', 'Code', 'IT Security', 'Computer', 'Privacy', 'Data', 'Prediction', 'Cloud', 'Survaillance', 'Data Mining', 'Ubiquitous Computing', 'Industry 4.0', 'Internet of Things', 'Machine Learning', 'Social Media', 'Technology', 'Internet'];
 const YOUTUBE_BASE = 'https://youtube.com/';
 const YOUTUBE_SEARCH_BASE = YOUTUBE_BASE+ 'results?q='+ SEARCH_KEY + '&p=';
+const getSearchBaseForIndex = (index) => {
+  return YOUTUBE_BASE+ 'results?q='+ SEARCH_KEYS[index] + '&p=';
+}
 const GOOGLE_API_BASE = 'https://www.googleapis.com/youtube/v3/videos?id='
+
+const pageCounter = 1;
+
 
 const subOpts = {
   auto: true,
@@ -44,21 +52,26 @@ mongoose.connect('mongodb://127.0.0.1:27017/');
 
 const snippet = mongoose.model('snippet', snippetSchema);
 const tiny = mongoose.model('tiny', tinySchema);
-const pageCounter = 1;
+
 
 
 
 // SEARCH QUERY ON YOUTUBE
 const youtubeInitialSearch = function() {
-  const crawl = (i) => {
-    const crawlURL = YOUTUBE_SEARCH_BASE + i.toString();
+  const crawl = (keywordIndex, i) => {
+    const crawlURL = getSearchBaseForIndex(keywordIndex) + i.toString();
     getAllTinys(crawlURL, (err) => {
       if (err) {
         console.log(err);
       }
 
+      // next page
       if (i < pageCounter + 1) {
-        crawl(i + 1);
+        crawl(keywordIndex, i + 1);
+      }
+      // net keyword
+      else if (keywordIndex + 1 < SEARCH_KEYS.length) {
+        crawl(keywordIndex + 1, 1);
       }
       else {
         notPickedTiny();
@@ -66,7 +79,7 @@ const youtubeInitialSearch = function() {
     });
   }
 
-  crawl(1);
+  crawl(0, 1);
 }
 
 
@@ -116,7 +129,23 @@ const getAllTinys = function(url, callback) {
 
       console.log('[SUCCES]'.green, possibleTiny);
       const tinyurl = possibleTiny.split('/watch?v=')[1];
-      getVideoData(tinyurl, cb);
+      /*getVideoData(tinyurl, (err) => {
+        if (err) {
+          console.log('------');
+          console.log(err);
+          console.log('------');
+        }
+
+        return cb(null);
+      });*/
+      parallel([
+        function (c) {
+          saveTinyToDatabase(tinyurl, '', '', c);
+        },
+        function (c) {
+          getSubtitles(tinyurl, c);
+        },
+      ], cb);
     }, callback);
   });
 }
@@ -125,12 +154,16 @@ const saveTinyToDatabase = function(tinyurl, title, description, callback) {
   const tiny1 = new tiny({tinyurl: tinyurl, title: title, description: description, timestamp: makeTimestamp(), picked: false});
   tiny1.save(function (err, userObj) {
     if (err) {
+      // ignore duplicate key errors
+      if (err.message.indexOf('duplicate key error')) {
+        return callback(null);
+      }
+
       return callback(err);
     }
     console.log(tinyurl, 'added to mongodb.');
 
-    return callback(null)
-    //getSubtitles(tinyurl);
+    return callback(null);
   });
 }
 
@@ -161,21 +194,25 @@ const getVideoData = function(tinyurl, callback) {
 const getSubtitles = function(tinyurl, callback) {
   youtubedl.getSubs(videoURL(tinyurl), subOpts, function(err, vttfile) {
     if (err) {
-      return callback(err);
+      console.log(err);
+      return callback(null);
     }
 
-    if (!vttfile) {
-      return callback(new Error("[EMPTY] ".red + "No sub found."));
+    if (!vttfile || S(vttfile).isEmpty()) {
+      console.log("[EMPTY] ".red + "No sub found.");
+      return callback(null);
     }
 
     console.log('[SUB] '.green + vttfile);
     fs.readFile(__dirname + "/" + vttfile, { encoding: 'utf-8' }, function (err, content) {
       if (err) {
-        return callback(err);
+        console.log(err);
+        return callback(null);
       }
 
       if (!content) {
-        return callback(new Error("[EMPTY] ".red + "No content found.");
+        console.log("[EMPTY] ".red + "No content found.");
+        return callback(null);
       }
 
       console.log("[SUCCESS] ".green + "content found.");
@@ -210,16 +247,17 @@ const getSubtitles = function(tinyurl, callback) {
           return cb(null);
         }
 
-        //console.log("[TINYURL]\t", tinyurl);
+        console.log("[TINYURL]\t", tinyurl);
         const timestamp = currentTimecode.replace(getStarttime, "");
-        //console.log("[TIMESTAMP]\t".yellow, timestamp);
+        console.log("[TIMESTAMP]\t".yellow, timestamp);
         const cleanEntry = S(entry).collapseWhitespace().s;
-        //console.log("[CONTENT]\t".blue, cleanEntry, "\n");
+        console.log("[CONTENT]\t".blue, cleanEntry, "\n");
 
         const snippet1 = new snippet({tinyurl: tinyurl, timestamp: timestamp, content: cleanEntry});
         snippet1.save(function (err, userObj) {
           if (err) {
-            cb(err);
+            console.log(err);
+            return cb(null);
           }
 
           cb(null);
