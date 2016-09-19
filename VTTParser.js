@@ -1,4 +1,5 @@
 'use strict';
+const ensureAsync = require('async/ensureAsync');
 const eachSeries = require('async/eachSeries');
 const S = require('string');
 
@@ -23,7 +24,7 @@ const parseContent = function(content, callback) {
   let currentTimecode = "";
   let previousString = "";
 
-  eachSeries(splitContent, function(entry, cb) {
+  eachSeries(splitContent, ensureAsync(function(entry, cb) {
     if (!entry || entry == " ") {
       return cb(null);
     }
@@ -46,14 +47,15 @@ const parseContent = function(content, callback) {
     //console.log("[TIMESTAMP]\t".yellow, cleanTimestamp);
     const cleanEntry = S(entry).collapseWhitespace().s;
     //console.log("[CONTENT]\t".blue, cleanEntry, "\n");
-
-    snippetStore.push({timestamp: cleanTimestamp, content: cleanEntry});
-
+    if (cleanTimestamp && cleanEntry) {
+      snippetStore.push({timestamp: cleanTimestamp, content: cleanEntry});
+    }
 
     previousString = entry;
     return cb(null);
-  }, callback);
-  return callback(snippetStore);
+  }), function (err) {
+      return err ? callback(err, null) : callback(null, snippetStore);
+  });
 }
 
 exports.parseContent = parseContent;

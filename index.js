@@ -20,7 +20,10 @@ const VTTParser = require("./VTTParser.js");
 
 const API_KEY = 'AIzaSyAjrnPLRyykFySLHfsrfz9SS7l8p--Rnjg';
 const SEARCH_KEY = 'Big Data';
-const SEARCH_KEYS = ['Whatsapp Encription', 'Precrime', 'Smart Home', 'Apple FBI']//['Algorithm', 'Code', 'IT Security', 'Computer', 'Privacy', 'Data', 'Prediction', 'Cloud', 'Survaillance', 'Data Mining', 'Ubiquitous Computing', 'Industry 4.0', 'Internet of Things', 'Machine Learning', 'Social Media', 'Technology', 'Internet'];
+const SEARCH_KEYS = ['Whatsapp Encryption', 'Metadata Surveillance', 'Big Data Surveillance',
+                    'Big Data Algorithm', 'Big Data Analysis', 'Social Graph Analysis',
+                    'Pre-Crime', 'Precrime', 'Smart Home', 'Apple FBI'];
+
 const YOUTUBE_BASE = 'https://youtube.com/';
 const YOUTUBE_SEARCH_BASE = YOUTUBE_BASE+ 'results?q='+ SEARCH_KEY + '&p=';
 const getSearchBaseForIndex = (index) => {
@@ -29,7 +32,7 @@ const getSearchBaseForIndex = (index) => {
 const GOOGLE_API_BASE = 'https://www.googleapis.com/youtube/v3/videos?id=';
 const AMOUNT_OF_TINYS_TO_PROCESS_IN_PARALLEL = os.cpus().length;
 
-const pageCounter = 1;
+const pageCounter = 50;
 const downloadPath = path.join(__dirname, 'VTTs');
 console.log(downloadPath);
 const subOpts = {
@@ -37,6 +40,9 @@ const subOpts = {
   lang: 'en',
   cwd: downloadPath
 };
+
+
+const crawlState = require('./crawl-state');
 
 const tinySchema = new Schema({
   tinyurl: {type: String, unique: true},
@@ -63,29 +69,34 @@ const tiny = mongoose.model('tiny', tinySchema);
 // SEARCH QUERY ON YOUTUBE
 const youtubeInitialSearch = function() {
   const crawl = (keywordIndex, i) => {
-    const crawlURL = getSearchBaseForIndex(keywordIndex) + i.toString();
-    getAllTinys(crawlURL, (err) => {
-      if (err) {
-        console.log(err);
-      }
-      console.log('getAllTinys');
-      // next page
-      if (i < pageCounter + 1) {
-        console.log('crawl');
+    fs.writeFile('crawl-state.json', JSON.stringify({
+      keywordIndex: keywordIndex,
+      i: i
+    }), function (err) {
+      const crawlURL = getSearchBaseForIndex(keywordIndex) + i.toString();
+      getAllTinys(crawlURL, (err) => {
+        if (err) {
+          console.log(err);
+        }
+        console.log('getAllTinys');
+        // next page
+        if (i < pageCounter + 1) {
+          console.log('crawl');
 
-        crawl(keywordIndex, i + 1);
-      }
-      // net keyword
-      else if (keywordIndex + 1 < SEARCH_KEYS.length) {
-        crawl(keywordIndex + 1, 1);
-      }
-      else {
-        notPickedTiny();
-      }
+          crawl(keywordIndex, i + 1);
+        }
+        // net keyword
+        else if (keywordIndex + 1 < SEARCH_KEYS.length) {
+          crawl(keywordIndex + 1, 1);
+        }
+        else {
+          notPickedTiny();
+        }
+      });
     });
   }
 
-  crawl(0, 1);
+  crawl(crawlState.keywordIndex, crawlState.i);
 }
 
 
@@ -148,7 +159,7 @@ const getAllTinys = function(url, callback) {
         function (c) {
           saveTinyToDatabase(tinyurl, '', '', c);
         },
-        function (c) {
+        function (c) { // c(err, result)
           getSubtitles(tinyurl, c);
         },
       ], cb);
@@ -195,46 +206,44 @@ const getVideoData = function(tinyurl, callback) {
 
 
 // DOWNLOAD SUBFILE AND HANDLE IT
-const getSubtitles = function(tinyurl, callback) {
+const getSubtitles = function(tinyurl, callback) { // callback(err, result)
 
   youtubedl.getSubs(videoURL(tinyurl), subOpts, function(err, vttfile) {
     if (err) {
       console.log(err);
-      return callback(null);
+      return callback(null, null);
     }
 
     if (!vttfile || S(vttfile).isEmpty()) {
       console.log("[EMPTY] ".red + "No sub found.");
-      return callback(null);
+      return callback(null, null);
     }
 
     console.log('[SUB] '.green + vttfile);
     fs.readFile(__dirname + "/VTTs/" + vttfile, { encoding: 'utf-8' }, function (err, fileContent) {
       if (err) {
         console.log(err);
-        return callback(null);
+        return callback(null, null);
       }
 
       VTTParser.parseContent(fileContent, function (err, snippetStore) {
-        if (err) {
+        if (err || !snippetStore) {
           console.log(err);
-          return callback(null);
-        }
-        if (!snippetStore) {
-          console.log("undefined.")
+          return callback(null, null);
         }
 
-          /*
-          const snippet1 = new snippet({tinyurl: tinyurl, timestamp: cleanTimestamp, content: cleanEntry});
+        // iterating over snippet store and saving everything in mongo 🕶 🆒
+        eachLimit(snippetStore, 4, function (snip, snipCallback) {
+          const snippet1 = new snippet({tinyurl: tinyurl, timestamp: snip.timestamp, content: snip.content});
           snippet1.save(function (err, userObj) {
             if (err) {
               console.log(err);
-              return cb(null);
+              return snipCallback(null);
             }
 
-            cb(null);
+            snipCallback(null);
           });
-          */
+        }, callback); // iterated over all snippet store item
       });
     });
   });
