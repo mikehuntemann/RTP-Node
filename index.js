@@ -20,9 +20,9 @@ const VTTParser = require("./VTTParser.js");
 
 const API_KEY = 'AIzaSyAjrnPLRyykFySLHfsrfz9SS7l8p--Rnjg';
 const SEARCH_KEY = 'Big Data';
-const SEARCH_KEYS = ['Whatsapp Encryption', 'Metadata Survaillance', 'Big Data Survaillance',
+const SEARCH_KEYS = ['Whatsapp Encryption', 'Metadata Surveillance', 'Big Data Surveillance',
                     'Big Data Algorithm', 'Big Data Analysis', 'Social Graph Analysis',
-                    'Pre-crime', 'Precrime', 'Smart Home', 'Apple FBI'];
+                    'Pre-Crime', 'Precrime', 'Smart Home', 'Apple FBI'];
 
 const YOUTUBE_BASE = 'https://youtube.com/';
 const YOUTUBE_SEARCH_BASE = YOUTUBE_BASE+ 'results?q='+ SEARCH_KEY + '&p=';
@@ -32,7 +32,7 @@ const getSearchBaseForIndex = (index) => {
 const GOOGLE_API_BASE = 'https://www.googleapis.com/youtube/v3/videos?id=';
 const AMOUNT_OF_TINYS_TO_PROCESS_IN_PARALLEL = os.cpus().length;
 
-const pageCounter = 1;
+const pageCounter = 50;
 const downloadPath = path.join(__dirname, 'VTTs');
 console.log(downloadPath);
 const subOpts = {
@@ -40,6 +40,9 @@ const subOpts = {
   lang: 'en',
   cwd: downloadPath
 };
+
+
+const crawlState = require('./crawl-state');
 
 const tinySchema = new Schema({
   tinyurl: {type: String, unique: true},
@@ -66,29 +69,34 @@ const tiny = mongoose.model('tiny', tinySchema);
 // SEARCH QUERY ON YOUTUBE
 const youtubeInitialSearch = function() {
   const crawl = (keywordIndex, i) => {
-    const crawlURL = getSearchBaseForIndex(keywordIndex) + i.toString();
-    getAllTinys(crawlURL, (err) => {
-      if (err) {
-        console.log(err);
-      }
-      console.log('getAllTinys');
-      // next page
-      if (i < pageCounter + 1) {
-        console.log('crawl');
+    fs.writeFile('crawl-state.json', JSON.stringify({
+      keywordIndex: keywordIndex,
+      i: i
+    }), function (err) {
+      const crawlURL = getSearchBaseForIndex(keywordIndex) + i.toString();
+      getAllTinys(crawlURL, (err) => {
+        if (err) {
+          console.log(err);
+        }
+        console.log('getAllTinys');
+        // next page
+        if (i < pageCounter + 1) {
+          console.log('crawl');
 
-        crawl(keywordIndex, i + 1);
-      }
-      // net keyword
-      else if (keywordIndex + 1 < SEARCH_KEYS.length) {
-        crawl(keywordIndex + 1, 1);
-      }
-      else {
-        notPickedTiny();
-      }
+          crawl(keywordIndex, i + 1);
+        }
+        // net keyword
+        else if (keywordIndex + 1 < SEARCH_KEYS.length) {
+          crawl(keywordIndex + 1, 1);
+        }
+        else {
+          notPickedTiny();
+        }
+      });
     });
   }
 
-  crawl(0, 1);
+  crawl(crawlState.keywordIndex, crawlState.i);
 }
 
 
