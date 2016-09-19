@@ -32,7 +32,7 @@ const getSearchBaseForIndex = (index) => {
 const GOOGLE_API_BASE = 'https://www.googleapis.com/youtube/v3/videos?id=';
 const AMOUNT_OF_TINYS_TO_PROCESS_IN_PARALLEL = os.cpus().length;
 
-const pageCounter = 1;
+const pageCounter = 50;
 const downloadPath = path.join(__dirname, 'VTTs');
 console.log(downloadPath);
 const subOpts = {
