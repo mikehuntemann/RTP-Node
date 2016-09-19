@@ -53,6 +53,7 @@ const parseContent = function(content, callback) {
     previousString = entry;
     return cb(null);
   }, callback);
+  return callback(snippetStore);
 }
 
 exports.parseContent = parseContent;

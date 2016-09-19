@@ -216,9 +216,13 @@ const getSubtitles = function(tinyurl, callback) {
       }
 
       VTTParser.parseContent(fileContent, function (err, snippetStore) {
-        console.log(snippetStore);
-        console.log('HELLO PARSECONTENT');
-          // Saving Array with OBJs to Mongo.
+        if (err) {
+          console.log(err);
+          return callback(null);
+        }
+        if (!snippetStore) {
+          console.log("undefined.")
+        }
 
           /*
           const snippet1 = new snippet({tinyurl: tinyurl, timestamp: cleanTimestamp, content: cleanEntry});
