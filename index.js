@@ -14,6 +14,7 @@ const makeTimestamp = require('timestamp')
 const request = require('request');
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const os = require('os');
 
 
 const API_KEY = 'AIzaSyAjrnPLRyykFySLHfsrfz9SS7l8p--Rnjg';
@@ -25,7 +26,7 @@ const getSearchBaseForIndex = (index) => {
   return YOUTUBE_BASE+ 'results?q='+ SEARCH_KEYS[index] + '&p=';
 }
 const GOOGLE_API_BASE = 'https://www.googleapis.com/youtube/v3/videos?id=';
-const AMOUNT_OF_TINYS_TO_PROCESS_IN_PARALLEL = require('os').cpus.length;
+const AMOUNT_OF_TINYS_TO_PROCESS_IN_PARALLEL = os.cpus().length;
 
 const pageCounter = 1;
 
@@ -123,6 +124,8 @@ const getAllTinys = function(url, callback) {
     }
     console.log('inside getAllTinys');
     const hyperlinks = $('a', 'li', body);
+    //console.log($(hyperlinks));
+    console.log(AMOUNT_OF_TINYS_TO_PROCESS_IN_PARALLEL);
     eachLimit($(hyperlinks), AMOUNT_OF_TINYS_TO_PROCESS_IN_PARALLEL, function(link, cb) {
       console.log('inside eachLimit');
       const possibleTiny = $(link).attr('href');
