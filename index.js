@@ -1,7 +1,7 @@
 'use strict';
 
 const eachLimit = require('async/eachLimit');
-const eachSeries = require('async/eachSeries');
+
 const forever = require('async/forever');
 const parallel = require('async/parallel');
 
@@ -16,6 +16,7 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const os = require('os');
 const path = require('path');
+const VTTParser = require("./VTTParser.js");
 
 const API_KEY = 'AIzaSyAjrnPLRyykFySLHfsrfz9SS7l8p--Rnjg';
 const SEARCH_KEY = 'Big Data';
@@ -65,7 +66,6 @@ const youtubeInitialSearch = function() {
     const crawlURL = getSearchBaseForIndex(keywordIndex) + i.toString();
     getAllTinys(crawlURL, (err) => {
       if (err) {
-        console.log('err getAllTinys');
         console.log(err);
       }
       console.log('getAllTinys');
@@ -123,12 +123,10 @@ const getAllTinys = function(url, callback) {
     if (err || response.statusCode !== 200) {
       return callback(err);
     }
-    console.log('inside getAllTinys');
     const hyperlinks = $('a', 'li', body);
     //console.log($(hyperlinks));
     console.log(AMOUNT_OF_TINYS_TO_PROCESS_IN_PARALLEL);
     eachLimit($(hyperlinks), AMOUNT_OF_TINYS_TO_PROCESS_IN_PARALLEL, function(link, cb) {
-      console.log('inside eachLimit');
       const possibleTiny = $(link).attr('href');
       if (!possibleTiny.startsWith('/watch?v=')) {
         console.log('[ERROR]'.red, possibleTiny, 'is not a tinyurl!');
@@ -148,11 +146,9 @@ const getAllTinys = function(url, callback) {
       });*/
       parallel([
         function (c) {
-          console.log('saveTinyToDatabase');
           saveTinyToDatabase(tinyurl, '', '', c);
         },
         function (c) {
-          console.log('getSubtitles');
           getSubtitles(tinyurl, c);
         },
       ], cb);
@@ -200,6 +196,7 @@ const getVideoData = function(tinyurl, callback) {
 
 // DOWNLOAD SUBFILE AND HANDLE IT
 const getSubtitles = function(tinyurl, callback) {
+
   youtubedl.getSubs(videoURL(tinyurl), subOpts, function(err, vttfile) {
     if (err) {
       console.log(err);
@@ -212,73 +209,29 @@ const getSubtitles = function(tinyurl, callback) {
     }
 
     console.log('[SUB] '.green + vttfile);
-    fs.readFile(__dirname + "/VTTs/" + vttfile, { encoding: 'utf-8' }, function (err, content) {
+    fs.readFile(__dirname + "/VTTs/" + vttfile, { encoding: 'utf-8' }, function (err, fileContent) {
       if (err) {
         console.log(err);
         return callback(null);
       }
 
-      if (!content) {
-        console.log("[EMPTY] ".red + "No content found.");
-        return callback(null);
-      }
+      VTTParser.parseContent(fileContent, function (err, snippetStore) {
+        console.log(snippetStore);
+        console.log('HELLO PARSECONTENT');
+          // Saving Array with OBJs to Mongo.
 
-      console.log("[SUCCESS] ".green + "content found.");
-      //console.log('[CONTENT] '.green + content);
-      //console.log(content.length);
-      //Array to Database
-      //VTTParser.parse(filecontent, function (err, [{timestamp, content}])
-      //var VTTParser = require('./VTTParser')
-      // modules export
+          /*
+          const snippet1 = new snippet({tinyurl: tinyurl, timestamp: cleanTimestamp, content: cleanEntry});
+          snippet1.save(function (err, userObj) {
+            if (err) {
+              console.log(err);
+              return cb(null);
+            }
 
-      const removeTags = new RegExp(/<[^>]*>/g);
-      const removePosition = new RegExp(/align:start position:0%/g);
-      const hasTimecode = new RegExp(/\d*\:\d*\:\d*\.\d*\W\-->\W\d*\:\d*\:\d*\.\d*/g);
-      const getStarttime = new RegExp(/\.\d*\W\-->\W\d*\:\d*\:\d*\.\d*/g);
-
-      const taglessContent = content.replace(removeTags, "");
-      const finalContent = taglessContent.replace(removePosition, "");
-      const splitContent = finalContent.split("\n");
-
-
-      let currentTimecode = "";
-      let previousString = "";
-
-      eachSeries(splitContent, function(entry, cb) {
-        if (!entry || entry == " ") {
-          return cb(null);
-        }
-
-        //NOTE: VTT SKIP HEADER, START AT FIRST TIMECODE (00:00:00.000)
-
-        if (hasTimecode.test(entry)) {
-            currentTimecode = entry;
-            return cb(null);
-        }
-
-        if (previousString === entry) {
-          return cb(null);
-        }
-
-        console.log("[TINYURL]\t", tinyurl);
-        const timestamp = currentTimecode.replace(getStarttime, "");
-        const cleanTimestamp = S(timestamp).stripRight().s;
-        console.log("[TIMESTAMP]\t".yellow, cleanTimestamp);
-        const cleanEntry = S(entry).collapseWhitespace().s;
-        console.log("[CONTENT]\t".blue, cleanEntry, "\n");
-
-        const snippet1 = new snippet({tinyurl: tinyurl, timestamp: timestamp, content: cleanEntry});
-        snippet1.save(function (err, userObj) {
-          if (err) {
-            console.log(err);
-            return cb(null);
-          }
-
-          cb(null);
-        });
-
-        previousString = entry;
-      }, callback);
+            cb(null);
+          });
+          */
+      });
     });
   });
 }
