@@ -15,7 +15,7 @@ const request = require('request');
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const os = require('os');
-
+const path = require('path');
 
 const API_KEY = 'AIzaSyAjrnPLRyykFySLHfsrfz9SS7l8p--Rnjg';
 const SEARCH_KEY = 'Big Data';
@@ -29,11 +29,12 @@ const GOOGLE_API_BASE = 'https://www.googleapis.com/youtube/v3/videos?id=';
 const AMOUNT_OF_TINYS_TO_PROCESS_IN_PARALLEL = os.cpus().length;
 
 const pageCounter = 1;
-
+const downloadPath = path.join(__dirname, 'VTTs');
+console.log(downloadPath);
 const subOpts = {
   auto: true,
   lang: 'en',
-  cwd: __dirname
+  cwd: downloadPath
 };
 
 const tinySchema = new Schema({
@@ -211,7 +212,7 @@ const getSubtitles = function(tinyurl, callback) {
     }
 
     console.log('[SUB] '.green + vttfile);
-    fs.readFile(__dirname + "/" + vttfile, { encoding: 'utf-8' }, function (err, content) {
+    fs.readFile(__dirname + "/VTTs/" + vttfile, { encoding: 'utf-8' }, function (err, content) {
       if (err) {
         console.log(err);
         return callback(null);
@@ -225,6 +226,11 @@ const getSubtitles = function(tinyurl, callback) {
       console.log("[SUCCESS] ".green + "content found.");
       //console.log('[CONTENT] '.green + content);
       //console.log(content.length);
+      //Array to Database
+      //VTTParser.parse(filecontent, function (err, [{timestamp, content}])
+      //var VTTParser = require('./VTTParser')
+      // modules export
+
       const removeTags = new RegExp(/<[^>]*>/g);
       const removePosition = new RegExp(/align:start position:0%/g);
       const hasTimecode = new RegExp(/\d*\:\d*\:\d*\.\d*\W\-->\W\d*\:\d*\:\d*\.\d*/g);
@@ -256,8 +262,8 @@ const getSubtitles = function(tinyurl, callback) {
 
         console.log("[TINYURL]\t", tinyurl);
         const timestamp = currentTimecode.replace(getStarttime, "");
-        timestamp = S(timestamp).stripRight().s;
-        console.log("[TIMESTAMP]\t".yellow, timestamp);
+        const cleanTimestamp = S(timestamp).stripRight().s;
+        console.log("[TIMESTAMP]\t".yellow, cleanTimestamp);
         const cleanEntry = S(entry).collapseWhitespace().s;
         console.log("[CONTENT]\t".blue, cleanEntry, "\n");
 
