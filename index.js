@@ -1,5 +1,6 @@
 'use strict';
 
+const eachLimit = require('async/eachLimit');
 const eachSeries = require('async/eachSeries');
 const forever = require('async/forever');
 const parallel = require('async/parallel');
@@ -17,13 +18,13 @@ const Schema = mongoose.Schema;
 
 const API_KEY = 'AIzaSyAjrnPLRyykFySLHfsrfz9SS7l8p--Rnjg';
 const SEARCH_KEY = 'Big Data';
-const SEARCH_KEYS = ['Algorithm', 'Code', 'IT Security', 'Computer', 'Privacy', 'Data', 'Prediction', 'Cloud', 'Survaillance', 'Data Mining', 'Ubiquitous Computing', 'Industry 4.0', 'Internet of Things', 'Machine Learning', 'Social Media', 'Technology', 'Internet'];
+const SEARCH_KEYS = ['Whatsapp Encription', 'Precrime', 'Smart Home', 'Apple FBI']//['Algorithm', 'Code', 'IT Security', 'Computer', 'Privacy', 'Data', 'Prediction', 'Cloud', 'Survaillance', 'Data Mining', 'Ubiquitous Computing', 'Industry 4.0', 'Internet of Things', 'Machine Learning', 'Social Media', 'Technology', 'Internet'];
 const YOUTUBE_BASE = 'https://youtube.com/';
 const YOUTUBE_SEARCH_BASE = YOUTUBE_BASE+ 'results?q='+ SEARCH_KEY + '&p=';
 const getSearchBaseForIndex = (index) => {
   return YOUTUBE_BASE+ 'results?q='+ SEARCH_KEYS[index] + '&p=';
 }
-const GOOGLE_API_BASE = 'https://www.googleapis.com/youtube/v3/videos?id='
+const GOOGLE_API_BASE = 'https://www.googleapis.com/youtube/v3/videos?id=';
 const AMOUNT_OF_TINYS_TO_PROCESS_IN_PARALLEL = require('os').cpus.length;
 
 const pageCounter = 1;
@@ -62,11 +63,14 @@ const youtubeInitialSearch = function() {
     const crawlURL = getSearchBaseForIndex(keywordIndex) + i.toString();
     getAllTinys(crawlURL, (err) => {
       if (err) {
+        console.log('err getAllTinys');
         console.log(err);
       }
-
+      console.log('getAllTinys');
       // next page
       if (i < pageCounter + 1) {
+        console.log('crawl');
+
         crawl(keywordIndex, i + 1);
       }
       // net keyword
@@ -117,10 +121,10 @@ const getAllTinys = function(url, callback) {
     if (err || response.statusCode !== 200) {
       return callback(err);
     }
-
+    console.log('inside getAllTinys');
     const hyperlinks = $('a', 'li', body);
-
     eachLimit($(hyperlinks), AMOUNT_OF_TINYS_TO_PROCESS_IN_PARALLEL, function(link, cb) {
+      console.log('inside eachLimit');
       const possibleTiny = $(link).attr('href');
       if (!possibleTiny.startsWith('/watch?v=')) {
         console.log('[ERROR]'.red, possibleTiny, 'is not a tinyurl!');
@@ -140,9 +144,11 @@ const getAllTinys = function(url, callback) {
       });*/
       parallel([
         function (c) {
+          console.log('saveTinyToDatabase');
           saveTinyToDatabase(tinyurl, '', '', c);
         },
         function (c) {
+          console.log('getSubtitles');
           getSubtitles(tinyurl, c);
         },
       ], cb);
