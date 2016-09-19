@@ -41,6 +41,9 @@ const subOpts = {
   cwd: downloadPath
 };
 
+
+const crawlState = require('./crawl-state');
+
 const tinySchema = new Schema({
   tinyurl: {type: String, unique: true},
   title: String,
@@ -66,29 +69,34 @@ const tiny = mongoose.model('tiny', tinySchema);
 // SEARCH QUERY ON YOUTUBE
 const youtubeInitialSearch = function() {
   const crawl = (keywordIndex, i) => {
-    const crawlURL = getSearchBaseForIndex(keywordIndex) + i.toString();
-    getAllTinys(crawlURL, (err) => {
-      if (err) {
-        console.log(err);
-      }
-      console.log('getAllTinys');
-      // next page
-      if (i < pageCounter + 1) {
-        console.log('crawl');
+    fs.writeFile('crawl-state.json', JSON.stringify({
+      keywordIndex: keywordIndex,
+      i: i
+    }), function (err) {
+      const crawlURL = getSearchBaseForIndex(keywordIndex) + i.toString();
+      getAllTinys(crawlURL, (err) => {
+        if (err) {
+          console.log(err);
+        }
+        console.log('getAllTinys');
+        // next page
+        if (i < pageCounter + 1) {
+          console.log('crawl');
 
-        crawl(keywordIndex, i + 1);
-      }
-      // net keyword
-      else if (keywordIndex + 1 < SEARCH_KEYS.length) {
-        crawl(keywordIndex + 1, 1);
-      }
-      else {
-        notPickedTiny();
-      }
+          crawl(keywordIndex, i + 1);
+        }
+        // net keyword
+        else if (keywordIndex + 1 < SEARCH_KEYS.length) {
+          crawl(keywordIndex + 1, 1);
+        }
+        else {
+          notPickedTiny();
+        }
+      });
     });
   }
 
-  crawl(0, 1);
+  crawl(crawlState.keywordIndex, crawlState.i);
 }
 
 
