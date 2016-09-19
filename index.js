@@ -148,7 +148,7 @@ const getAllTinys = function(url, callback) {
         function (c) {
           saveTinyToDatabase(tinyurl, '', '', c);
         },
-        function (c) {
+        function (c) { // c(err, result)
           getSubtitles(tinyurl, c);
         },
       ], cb);
@@ -195,46 +195,44 @@ const getVideoData = function(tinyurl, callback) {
 
 
 // DOWNLOAD SUBFILE AND HANDLE IT
-const getSubtitles = function(tinyurl, callback) {
+const getSubtitles = function(tinyurl, callback) { // callback(err, result)
 
   youtubedl.getSubs(videoURL(tinyurl), subOpts, function(err, vttfile) {
     if (err) {
       console.log(err);
-      return callback(null);
+      return callback(null, null);
     }
 
     if (!vttfile || S(vttfile).isEmpty()) {
       console.log("[EMPTY] ".red + "No sub found.");
-      return callback(null);
+      return callback(null, null);
     }
 
     console.log('[SUB] '.green + vttfile);
     fs.readFile(__dirname + "/VTTs/" + vttfile, { encoding: 'utf-8' }, function (err, fileContent) {
       if (err) {
         console.log(err);
-        return callback(null);
+        return callback(null, null);
       }
 
       VTTParser.parseContent(fileContent, function (err, snippetStore) {
-        if (err) {
+        if (err || !snippetStore) {
           console.log(err);
-          return callback(null);
+          return callback(null, null);
         }
-        if (!snippetStore) {
-          console.log("undefined.")
-        }
-
-          /*
-          const snippet1 = new snippet({tinyurl: tinyurl, timestamp: cleanTimestamp, content: cleanEntry});
+        
+        // iterating over snippet store and saving everything in mongo 🕶🆒
+        eachSeries(snippetStore, function (snip, snipCallback) {
+          const snippet1 = new snippet({tinyurl: tinyurl, timestamp: snip.timestamp, content: snip.content});
           snippet1.save(function (err, userObj) {
             if (err) {
               console.log(err);
-              return cb(null);
+              return snipCallback(null);
             }
 
-            cb(null);
+            snipCallback(null);
           });
-          */
+        }, callback); // iterated over all snippet store item
       });
     });
   });
