@@ -20,9 +20,9 @@ const VTTParser = require("./VTTParser.js");
 
 const API_KEY = 'AIzaSyAjrnPLRyykFySLHfsrfz9SS7l8p--Rnjg';
 const SEARCH_KEY = 'Big Data';
-const SEARCH_KEYS = ['Whatsapp Encryption', 'Metadata Survaillance', 'Big Data Survaillance',
+const SEARCH_KEYS = ['Whatsapp Encryption', 'Metadata Surveillance', 'Big Data Surveillance',
                     'Big Data Algorithm', 'Big Data Analysis', 'Social Graph Analysis',
-                    'Pre-crime', 'Precrime', 'Smart Home', 'Apple FBI'];
+                    'Pre-Crime', 'Precrime', 'Smart Home', 'Apple FBI'];
 
 const YOUTUBE_BASE = 'https://youtube.com/';
 const YOUTUBE_SEARCH_BASE = YOUTUBE_BASE+ 'results?q='+ SEARCH_KEY + '&p=';
