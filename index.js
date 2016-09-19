@@ -20,7 +20,10 @@ const VTTParser = require("./VTTParser.js");
 
 const API_KEY = 'AIzaSyAjrnPLRyykFySLHfsrfz9SS7l8p--Rnjg';
 const SEARCH_KEY = 'Big Data';
-const SEARCH_KEYS = ['Whatsapp Encription', 'Precrime', 'Smart Home', 'Apple FBI']//['Algorithm', 'Code', 'IT Security', 'Computer', 'Privacy', 'Data', 'Prediction', 'Cloud', 'Survaillance', 'Data Mining', 'Ubiquitous Computing', 'Industry 4.0', 'Internet of Things', 'Machine Learning', 'Social Media', 'Technology', 'Internet'];
+const SEARCH_KEYS = ['Whatsapp Encryption', 'Metadata Survaillance', 'Big Data Survaillance',
+                    'Big Data Algorithm', 'Big Data Analysis', 'Social Graph Analysis',
+                    'Pre-crime', 'Precrime', 'Smart Home', 'Apple FBI'];
+
 const YOUTUBE_BASE = 'https://youtube.com/';
 const YOUTUBE_SEARCH_BASE = YOUTUBE_BASE+ 'results?q='+ SEARCH_KEY + '&p=';
 const getSearchBaseForIndex = (index) => {
@@ -220,9 +223,9 @@ const getSubtitles = function(tinyurl, callback) { // callback(err, result)
           console.log(err);
           return callback(null, null);
         }
-        
-        // iterating over snippet store and saving everything in mongo 🕶🆒
-        eachSeries(snippetStore, function (snip, snipCallback) {
+
+        // iterating over snippet store and saving everything in mongo 🕶 🆒
+        eachLimit(snippetStore, 4, function (snip, snipCallback) {
           const snippet1 = new snippet({tinyurl: tinyurl, timestamp: snip.timestamp, content: snip.content});
           snippet1.save(function (err, userObj) {
             if (err) {
